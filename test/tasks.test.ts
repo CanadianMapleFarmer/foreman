@@ -62,6 +62,7 @@ test("wait reports running before the turn ends, cancel and followup continue th
   await tm.dispatch({ taskId: "t2", role: "coder", spec: "SLOW" });
   const w = await tm.wait("t2", 1);
   expect(w.status).toBe("running");
+  expect((await tm.status("t2"))[0]!.state).toBe("running");
   await tm.cancel("t2");
   const after = await tm.wait("t2", 10);
   expect(["cancelled", "end_turn", "timeout"]).toContain(after.stopReason ?? "");

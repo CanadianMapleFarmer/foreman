@@ -16,8 +16,8 @@ export function buildServer(tm: TaskManager): McpServer {
     inputSchema: { taskId: z.string().regex(/^[A-Za-z0-9._-]+$/), role: z.string(), spec: z.string().min(20), base: z.string().optional() },
   }, (a) => run(() => tm.dispatch(a)));
   server.registerTool("worker_wait", {
-    description: "Wait for the task's current turn. Returns status done|running|budget_exceeded|error|timeout, the worker summary, files changed and cost.",
-    inputSchema: { taskId: z.string(), timeoutSeconds: z.number().int().positive().max(3600).optional() },
+    description: "Wait up to timeoutSeconds (default 45, max 300) for the task's current turn. Returns status running when the turn is still going: call again. Otherwise done|budget_exceeded|error|timeout with the worker summary, files changed and cost.",
+    inputSchema: { taskId: z.string(), timeoutSeconds: z.number().int().positive().max(300).optional() },
   }, (a) => run(() => tm.wait(a.taskId, a.timeoutSeconds)));
   server.registerTool("worker_followup", {
     description: "Send a follow-up message in the same worker session (gate failures, review findings) and wait for the turn.",

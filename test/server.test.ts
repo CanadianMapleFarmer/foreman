@@ -25,4 +25,7 @@ test("foreman mcp lists the nine tools and answers foreman_budget", async () => 
   const text = (r.content as Array<{ type: string; text: string }>)[0]!.text;
   expect(JSON.parse(text).perTaskCapUsd).toBe(0.5);
   await client.close();
+  await Bun.sleep(300);
+  const left = Bun.spawnSync(["pgrep", "-f", "fake-agent.ts"]).stdout.toString().trim();
+  expect(left).toBe("");
 });

@@ -108,7 +108,7 @@ export class TaskManager {
     return { status, stopReason: turn.stopReason, summary, summaryEmpty, filesChanged, usage: turn.usage, contextTokens: turn.contextTokens, estCostUsd, rejections: turn.rejections, error };
   }
 
-  async wait(taskId: string, timeoutSeconds = 600): Promise<WaitResult> {
+  async wait(taskId: string, timeoutSeconds = 45): Promise<WaitResult> {
     const live = this.live.get(taskId);
     const record = await this.deps.ledger.read(taskId);
     if (!live) {

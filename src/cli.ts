@@ -22,10 +22,13 @@ async function mcp() {
   const { host, tm } = await build();
   await host.start();
   const server = buildServer(tm);
-  await server.connect(new StdioServerTransport());
+  const transport = new StdioServerTransport();
   const shutdown = () => { host.close(); process.exit(0); };
+  transport.onclose = shutdown;
+  process.stdin.on("end", shutdown);
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+  await server.connect(transport);
 }
 
 async function doctor() {
