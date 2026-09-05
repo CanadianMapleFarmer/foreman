@@ -57,6 +57,7 @@ export function decide(policy: Policy, call: ToolCallInfo, ctx: PolicyContext): 
   const command = commandOf(call.rawInput, call.title);
   const paths = pathsOf(call.rawInput);
   if (call.kind === "fetch") return { allow: false, reason: "network access is not allowed for workers" };
+  if (call.kind === "execute" && /\b(curl|wget)\b|https?:\/\//.test(command)) return { allow: false, reason: "network access is not allowed for workers; use installed packages and the spec instead of fetching" };
   if (policy === "read") {
     if (call.kind === "read" || call.kind === "search" || call.kind === "think") return { allow: true, reason: "read-only kind" };
     if (call.kind === "execute") {

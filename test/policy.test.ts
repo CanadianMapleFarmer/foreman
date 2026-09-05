@@ -26,6 +26,7 @@ test("write policy rejects git commit/push/worktree, wiping root, and paths outs
   expect(decide("write", exec("cat ../../secrets"), ctx).allow).toBe(false);
   expect(decide("write", exec("echo x > /repo/src/a.ts"), ctx).allow).toBe(false);
   expect(decide("write", { kind: "fetch", title: "https://x", rawInput: {} }, ctx).allow).toBe(false);
+  expect(decide("write", exec("curl -fsSL https://supabase.com/changelog.md"), ctx).reason).toMatch(/network/);
 });
 
 test("read policy allows only reads, searches and whitelisted commands", () => {
