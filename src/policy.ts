@@ -9,8 +9,8 @@ const FORBIDDEN_COMMANDS = [/\bgit\s+commit\b/, /\bgit\s+push\b/, /\bgit\s+workt
 const READ_ONLY_SEGMENT = [
   /^cd(\s|$)/, /^(cat|ls|head|tail|wc|grep|rg|find|echo|pwd|tree|stat|file|diff|sort|uniq|cut|awk|sed\s+-n)(\s|$)/,
   /^git\s+(diff|log|status|show|ls-files|blame|rev-parse|branch\s+--list)(\s|$)/,
-  /^(bun|npm|pnpm|yarn)\s+(run\s+)?(check|lint|typecheck|test|format)(\s|$)/,
-  /^(bunx|npx)\s+(biome|tsc|eslint|prettier)(\s|$)/, /^tsc(\s|$)/,
+  /^(bun|npm|pnpm|yarn)\s+(install|ci|run|test|x)(\s|$)/,
+  /^(bunx|npx)\s+/, /^(tsc|biome|eslint|prettier|vitest|jest|dotnet\s+(build|test)|cargo\s+(check|test|build)|go\s+(vet|test|build)|pytest|make)(\s|$)/,
 ];
 const SYSTEM_PATH_PREFIXES = ["/tmp/", "/private/tmp/", "/dev/", "/usr/", "/bin/", "/opt/", "/etc/"];
 
@@ -44,7 +44,7 @@ function commandEscapes(command: string, worktree: string): boolean {
 
 function isReadOnlyCommand(command: string): boolean {
   const cleaned = command.replace(/2>\/dev\/null|2>&1/g, "");
-  if (/[>]|\btee\b/.test(cleaned)) return false;
+  if (/[>]|\btee\b|\bsed\s+-i\b|\brm\s|\bmv\s|\bcp\s|\bchmod\s|\btouch\s|\bmkdir\s/.test(cleaned)) return false;
   return cleaned
     .split(/&&|\|\||;|\|/)
     .map((s) => s.trim())

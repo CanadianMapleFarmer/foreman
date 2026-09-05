@@ -168,10 +168,11 @@ export class TaskManager {
     const diff = await stagedDiff(record.worktree, record.baseCommit);
     const sessionId = await host.newSession(record.worktree);
     await host.setModel(sessionId, role.model);
-    const prompt = `${await resolvePromptText(role, this.deps.foremanDir, config.projectRoot)}\n\n# Task spec\n\n${spec}\n\n# Diff against base\n\n\`\`\`diff\n${diff.slice(0, MAX_DIFF_CHARS)}\n\`\`\``;
+    const gateNote = record.gate ? `Acceptance gate (\`${config.acceptCommand ?? "n/a"}\`) PASSED at ${record.gate.passedAt}.` : "Acceptance gate has not passed yet.";
+    const prompt = `${await resolvePromptText(role, this.deps.foremanDir, config.projectRoot)}\n\n# Gate\n\n${gateNote}\n\n# Task spec\n\n${spec}\n\n# Diff against base\n\n\`\`\`diff\n${diff.slice(0, MAX_DIFF_CHARS)}\n\`\`\``;
     const rejected: string[] = [];
-    const turn = await host.prompt(sessionId, prompt, {
-      onPermission: (call) => {
+    const handlers = {
+      onPermission: (call: ToolCallInfo) => {
         const d = decide("read", call, { worktree: record.worktree, acceptCommand: config.acceptCommand });
         if (!d.allow) {
           rejected.push(call.title);
@@ -179,13 +180,18 @@ export class TaskManager {
         }
         return d;
       },
-      onEvent: (e) => { void ledger.appendEvent(taskId, { review: e }); },
-    }, role.maxTurnSeconds * 1000);
-    const estCostUsd = await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
+      onEvent: (e: unknown) => { void ledger.appendEvent(taskId, { review: e }); },
+    };
+    let turn = await host.prompt(sessionId, prompt, handlers, role.maxTurnSeconds * 1000);
+    let estCostUsd = await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
+    if (turn.stopReason === "end_turn" && turn.text.trim() === "") {
+      turn = await host.prompt(sessionId, "Your reply was empty. Reply now with ONLY the JSON object {\"blocking\":[...],\"warnings\":[...]} based on what you have already inspected.", handlers, role.maxTurnSeconds * 1000);
+      estCostUsd += await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
+    }
     const parsed = turn.stopReason === "cancelled" || turn.stopReason === "timeout"
       ? { blocking: [{ file: "", line: 0, issue: `reviewer turn ${turn.stopReason} after ${rejected.length} rejected tool calls: ${rejected.join(" | ").slice(0, 400)}` }], warnings: [] }
       : parseFindings(turn.text);
-    const reviewPath = await ledger.writeFile(taskId, "review.json", JSON.stringify({ role: roleName, model: role.model, ...parsed, raw: turn.text }, null, 2));
+    const reviewPath = await ledger.writeFile(taskId, "review.json", JSON.stringify({ role: roleName, model: role.model, stopReason: turn.stopReason, rejected, ...parsed, raw: turn.text }, null, 2));
     await ledger.update(taskId, { review: { blocking: parsed.blocking.length, warnings: parsed.warnings.length }, estCostUsd: record.estCostUsd + estCostUsd, state: "reviewed" });
     return { ...parsed, reviewPath, estCostUsd };
   }
