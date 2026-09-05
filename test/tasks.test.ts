@@ -7,7 +7,7 @@ import { Budget } from "../src/budget";
 import { loadConfig } from "../src/config";
 import { gitOk } from "../src/git";
 import { Ledger } from "../src/ledger";
-import { TaskManager } from "../src/tasks";
+import { looksLikeFindings, TaskManager } from "../src/tasks";
 
 const fakeFetch = (async (url: string | URL | Request) => {
   const u = String(url);
@@ -116,4 +116,10 @@ test("followup in a fresh process loads the session and re-pins the model", asyn
   expect(f.status).toBe("done");
   expect(f.summary).toBe("PONG");
   host2.close();
+});
+
+test("looksLikeFindings accepts fenced JSON and rejects prose", () => {
+  expect(looksLikeFindings("```json\n{\"blocking\":[],\"warnings\":[]}\n```")).toBe(true);
+  expect(looksLikeFindings("Let me check the stack status.")).toBe(false);
+  expect(looksLikeFindings("{\"foo\":1}")).toBe(false);
 });

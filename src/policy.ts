@@ -9,6 +9,7 @@ const FORBIDDEN_COMMANDS = [/\bgit\s+commit\b/, /\bgit\s+push\b/, /\bgit\s+workt
 const READ_ONLY_SEGMENT = [
   /^cd(\s|$)/, /^(cat|ls|head|tail|wc|grep|rg|find|echo|pwd|tree|stat|file|diff|sort|uniq|cut|awk|sed\s+-n)(\s|$)/,
   /^git\s+(diff|log|status|show|ls-files|blame|rev-parse|branch\s+--list)(\s|$)/,
+  /^supabase\s+(status|test\s+db|db\s+(lint|diff)|migration\s+list|gen\s+types)(\s|$)/,
   /^(bun|npm|pnpm|yarn)\s+(install|ci|run|test|x)(\s|$)/,
   /^(bunx|npx)\s+/, /^(tsc|biome|eslint|prettier|vitest|jest|dotnet\s+(build|test)|cargo\s+(check|test|build)|go\s+(vet|test|build)|pytest|make)(\s|$)/,
 ];

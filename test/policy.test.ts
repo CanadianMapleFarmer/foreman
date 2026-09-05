@@ -40,6 +40,8 @@ test("read policy allows only reads, searches and whitelisted commands", () => {
   expect(decide("read", exec("grep -rn createFileRoute src | head -5"), ctx).allow).toBe(true);
   expect(decide("read", exec("cd apps/web && bun install --frozen-lockfile 2>&1 | tail -5"), ctx).allow).toBe(true);
   expect(decide("read", exec("bun run build"), ctx).allow).toBe(true);
+  expect(decide("read", exec("supabase status"), ctx).allow).toBe(true);
+  expect(decide("read", exec("supabase db reset"), ctx).allow).toBe(false);
   expect(decide("read", exec("sed -i '' s/a/b/ src/a.ts"), ctx).allow).toBe(false);
   expect(decide("read", exec("mkdir x"), ctx).allow).toBe(false);
   expect(decide("read", exec("cat x > y"), ctx).allow).toBe(false);

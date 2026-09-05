@@ -184,8 +184,8 @@ export class TaskManager {
     };
     let turn = await host.prompt(sessionId, prompt, handlers, role.maxTurnSeconds * 1000);
     let estCostUsd = await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
-    if (turn.stopReason === "end_turn" && turn.text.trim() === "") {
-      turn = await host.prompt(sessionId, "Your reply was empty. Reply now with ONLY the JSON object {\"blocking\":[...],\"warnings\":[...]} based on what you have already inspected.", handlers, role.maxTurnSeconds * 1000);
+    if (turn.stopReason === "end_turn" && !looksLikeFindings(turn.text)) {
+      turn = await host.prompt(sessionId, "Your reply did not contain the required JSON. Reply now with ONLY the JSON object {\"blocking\":[...],\"warnings\":[...]} based on what you have already inspected. No prose.", handlers, role.maxTurnSeconds * 1000);
       estCostUsd += await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
     }
     const parsed = turn.stopReason === "cancelled" || turn.stopReason === "timeout"
@@ -230,6 +230,18 @@ export class TaskManager {
   async budgetSummary() {
     const { budget } = this.deps;
     return { creditsRemainingUsd: await budget.creditsRemainingUsd(), spentThisProcessUsd: budget.spentThisProcessUsd, perTaskCapUsd: budget.perTaskCapUsd, floorUsd: budget.creditFloorUsd };
+  }
+}
+
+export function looksLikeFindings(text: string): boolean {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return false;
+  try {
+    const obj = JSON.parse(text.slice(start, end + 1)) as { blocking?: unknown; warnings?: unknown };
+    return Array.isArray(obj.blocking) || Array.isArray(obj.warnings);
+  } catch {
+    return false;
   }
 }
 
