@@ -5,15 +5,14 @@ An MCP server that lets Claude Code dispatch bounded coding tasks to cheap worke
 ## Install (once per machine)
 
     bun install
-    chmod +x src/cli.ts && ln -sf "$PWD/src/cli.ts" ~/.local/bin/foreman
 
-The project `.mcp.json` entry written by the installer uses `bun run <this repo>/src/cli.ts mcp`, so the symlink is only a convenience for `foreman doctor`.
+Optionally alias the CLI: `alias foreman='bun run /path/to/foreman/src/cli.ts'`. The project `.mcp.json` entry written by the installer uses the absolute `bun run <this repo>/src/cli.ts mcp`, so no global install is needed.
 
 ## Add to a project
 
     scripts/install-into-project.sh /path/to/project "bun run check && bun run build"
 
-Then restart Claude Code in that project and confirm `/mcp` lists `foreman`. Run `foreman doctor` inside the project to verify roles and credit.
+Then restart Claude Code in that project and confirm `/mcp` lists `foreman`. Run `bun run /path/to/foreman/src/cli.ts doctor` inside the project to verify roles and credit.
 
 ## Configuration: `.foreman.json` in the project root
 
