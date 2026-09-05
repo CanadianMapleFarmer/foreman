@@ -31,7 +31,8 @@ async function setup(capUsd = 0.5) {
   const budget = new Budget({ key: "k", perTaskCapUsd: config.perTaskCapUsd, creditFloorUsd: 5, fetchImpl: fakeFetch });
   const ledger = new Ledger(config.projectRoot, config.ledgerDir);
   const foremanDir = join(import.meta.dir, "..");
-  return { root: config.projectRoot, tm: new TaskManager({ config, host, ledger, budget, foremanDir }), host };
+  const make = (h: AcpHost) => new TaskManager({ config, host: h, ledger, budget, foremanDir });
+  return { root: config.projectRoot, tm: make(host), host, make };
 }
 
 test("dispatch, wait, gate, review, merge", async () => {
@@ -101,4 +102,18 @@ test("gate failure is reported and merge without gate is refused", async () => {
   const b = await tm.budgetSummary();
   expect(b.perTaskCapUsd).toBe(0.5);
   host.close();
+});
+
+test("followup in a fresh process loads the session and re-pins the model", async () => {
+  const { tm, host, make } = await setup();
+  await tm.dispatch({ taskId: "t7", role: "coder", spec: "hello" });
+  await tm.wait("t7", 10);
+  host.close();
+  const host2 = new AcpHost({ command: ["bun", "run", `${import.meta.dir}/fake-agent.ts`] });
+  await host2.start();
+  const tm2 = make(host2);
+  const f = await tm2.followup("t7", "again");
+  expect(f.status).toBe("done");
+  expect(f.summary).toBe("PONG");
+  host2.close();
 });

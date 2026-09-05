@@ -6,7 +6,12 @@ export interface PolicyContext { worktree: string; acceptCommand: string | null 
 export interface Decision { allow: boolean; reason: string }
 
 const FORBIDDEN_COMMANDS = [/\bgit\s+commit\b/, /\bgit\s+push\b/, /\bgit\s+worktree\b/, /\brm\s+-[a-zA-Z]*r[a-zA-Z]*\s+\/(\s|$)/, /\bsudo\b/];
-const READ_ONLY_COMMANDS = [/^\s*git\s+(diff|log|status|show)\b/];
+const READ_ONLY_SEGMENT = [
+  /^cd(\s|$)/, /^(cat|ls|head|tail|wc|grep|rg|find|echo|pwd|tree|stat|file|diff|sort|uniq|cut|awk|sed\s+-n)(\s|$)/,
+  /^git\s+(diff|log|status|show|ls-files|blame|rev-parse|branch\s+--list)(\s|$)/,
+  /^(bun|npm|pnpm|yarn)\s+(run\s+)?(check|lint|typecheck|test|format)(\s|$)/,
+  /^(bunx|npx)\s+(biome|tsc|eslint|prettier)(\s|$)/, /^tsc(\s|$)/,
+];
 const SYSTEM_PATH_PREFIXES = ["/tmp/", "/private/tmp/", "/dev/", "/usr/", "/bin/", "/opt/", "/etc/"];
 
 function commandOf(input: unknown, title: string): string {
@@ -37,6 +42,16 @@ function commandEscapes(command: string, worktree: string): boolean {
     .some((p) => !insideWorktree(p, worktree));
 }
 
+function isReadOnlyCommand(command: string): boolean {
+  const cleaned = command.replace(/2>\/dev\/null|2>&1/g, "");
+  if (/[>]|\btee\b/.test(cleaned)) return false;
+  return cleaned
+    .split(/&&|\|\||;|\|/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .every((segment) => READ_ONLY_SEGMENT.some((re) => re.test(segment)));
+}
+
 export function decide(policy: Policy, call: ToolCallInfo, ctx: PolicyContext): Decision {
   const command = commandOf(call.rawInput, call.title);
   const paths = pathsOf(call.rawInput);
@@ -44,9 +59,10 @@ export function decide(policy: Policy, call: ToolCallInfo, ctx: PolicyContext): 
   if (policy === "read") {
     if (call.kind === "read" || call.kind === "search" || call.kind === "think") return { allow: true, reason: "read-only kind" };
     if (call.kind === "execute") {
-      if (READ_ONLY_COMMANDS.some((re) => re.test(command))) return { allow: true, reason: "read-only git command" };
+      if (commandEscapes(command, ctx.worktree)) return { allow: false, reason: "command references a path outside the task worktree" };
       if (ctx.acceptCommand && command.trim() === ctx.acceptCommand.trim()) return { allow: true, reason: "acceptance command" };
-      return { allow: false, reason: `read policy forbids command: ${command}` };
+      if (isReadOnlyCommand(command)) return { allow: true, reason: "read-only command" };
+      return { allow: false, reason: `read policy allows only inspection commands (cat, ls, grep, git diff/log/status, lint, test); got: ${command}` };
     }
     return { allow: false, reason: `read policy forbids ${call.kind}` };
   }

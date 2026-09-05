@@ -24,7 +24,7 @@ export interface Finding { file: string; line: number; issue: string }
 
 interface Deps { config: ForemanConfig; host: AcpHost; ledger: Ledger; budget: Budget; foremanDir: string }
 
-const MAX_REJECTIONS_PER_TURN = 5;
+const MAX_REJECTIONS_PER_TURN = 8;
 const GATE_TIMEOUT_MS = 20 * 60 * 1000;
 const MAX_DIFF_CHARS = 200_000;
 
@@ -132,6 +132,10 @@ export class TaskManager {
     this.deps.budget.assertWithinCap(record.estCostUsd);
     if (!record.sessionId) throw new Error(`task ${taskId} has no session`);
     const role = this.role(record.role);
+    if (!this.deps.host.hasSession(record.sessionId)) {
+      await this.deps.host.loadSession(record.sessionId, record.worktree);
+      await this.deps.host.setModel(record.sessionId, role.model);
+    }
     await this.deps.ledger.update(taskId, { state: "running" });
     const result = await this.startTurn(taskId, role, record.sessionId, message);
     this.live.delete(taskId);
@@ -165,12 +169,22 @@ export class TaskManager {
     const sessionId = await host.newSession(record.worktree);
     await host.setModel(sessionId, role.model);
     const prompt = `${await resolvePromptText(role, this.deps.foremanDir, config.projectRoot)}\n\n# Task spec\n\n${spec}\n\n# Diff against base\n\n\`\`\`diff\n${diff.slice(0, MAX_DIFF_CHARS)}\n\`\`\``;
+    const rejected: string[] = [];
     const turn = await host.prompt(sessionId, prompt, {
-      onPermission: (call) => decide("read", call, { worktree: record.worktree, acceptCommand: config.acceptCommand }),
+      onPermission: (call) => {
+        const d = decide("read", call, { worktree: record.worktree, acceptCommand: config.acceptCommand });
+        if (!d.allow) {
+          rejected.push(call.title);
+          if (rejected.length >= MAX_REJECTIONS_PER_TURN) host.cancel(sessionId);
+        }
+        return d;
+      },
       onEvent: (e) => { void ledger.appendEvent(taskId, { review: e }); },
     }, role.maxTurnSeconds * 1000);
     const estCostUsd = await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
-    const parsed = parseFindings(turn.text);
+    const parsed = turn.stopReason === "cancelled" || turn.stopReason === "timeout"
+      ? { blocking: [{ file: "", line: 0, issue: `reviewer turn ${turn.stopReason} after ${rejected.length} rejected tool calls: ${rejected.join(" | ").slice(0, 400)}` }], warnings: [] }
+      : parseFindings(turn.text);
     const reviewPath = await ledger.writeFile(taskId, "review.json", JSON.stringify({ role: roleName, model: role.model, ...parsed, raw: turn.text }, null, 2));
     await ledger.update(taskId, { review: { blocking: parsed.blocking.length, warnings: parsed.warnings.length }, estCostUsd: record.estCostUsd + estCostUsd, state: "reviewed" });
     return { ...parsed, reviewPath, estCostUsd };

@@ -52,6 +52,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   switch (m.method) {
     case "initialize": return out({ jsonrpc: "2.0", id, result: { protocolVersion: 1, agentCapabilities: {}, agentInfo: { name: "fake", version: "0" } } });
     case "session/new": { const sid = `ses_${nextSession++}`; return out({ jsonrpc: "2.0", id, result: { sessionId: sid, configOptions: configOptions(sid) } }); }
+    case "session/load": { models[m.params.sessionId] = "opencode/free"; return out({ jsonrpc: "2.0", id, result: { configOptions: configOptions(m.params.sessionId) } }); }
     case "session/set_config_option": {
       if (m.params.value === "bad/model") return out({ jsonrpc: "2.0", id, error: { code: -32602, message: "unknown model" } });
       models[m.params.sessionId] = m.params.value;

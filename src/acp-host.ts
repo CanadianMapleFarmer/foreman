@@ -39,6 +39,7 @@ export class AcpHost {
   private peer: JsonRpcPeer | null = null;
   private alive = false;
   private turns = new Map<string, ActiveTurn>();
+  private sessions = new Set<string>();
 
   constructor(private opts: AcpHostOptions = {}) {}
 
@@ -65,7 +66,15 @@ export class AcpHost {
 
   async newSession(cwd: string): Promise<string> {
     const r = await this.rpc().request<{ sessionId: string }>("session/new", { cwd, mcpServers: [] }, 60_000);
+    this.sessions.add(r.sessionId);
     return r.sessionId;
+  }
+
+  hasSession(sessionId: string): boolean { return this.sessions.has(sessionId); }
+
+  async loadSession(sessionId: string, cwd: string): Promise<void> {
+    await this.rpc().request("session/load", { sessionId, cwd, mcpServers: [] }, 60_000);
+    this.sessions.add(sessionId);
   }
 
   async setModel(sessionId: string, model: string): Promise<void> {
