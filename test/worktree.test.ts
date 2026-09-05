@@ -26,7 +26,7 @@ test("create, change, diff, merge, remove", async () => {
   expect(await hasChanges(wt.path)).toBe(true);
   expect(await stagedDiff(wt.path, wt.baseCommit)).toContain("+b");
   const { commit } = await commitAndMerge(root, wt.path, wt.branch, "task t1");
-  expect(commit).toMatch(/^[0-9a-f]{40}$/);
+  expect(commit ?? "").toMatch(/^[0-9a-f]{40}$/);
   expect(await readFile(join(root, "b.txt"), "utf8")).toBe("b\n");
   await removeWorktree(root, wt.path, wt.branch);
   expect(await Bun.file(join(wt.path, "b.txt")).exists()).toBe(false);
