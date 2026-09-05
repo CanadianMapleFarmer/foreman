@@ -14,6 +14,7 @@ const READ_ONLY_SEGMENT = [
   /^(bunx|npx)\s+/, /^(tsc|biome|eslint|prettier|vitest|jest|dotnet\s+(build|test)|cargo\s+(check|test|build)|go\s+(vet|test|build)|pytest|make)(\s|$)/,
 ];
 const SYSTEM_PATH_PREFIXES = ["/tmp/", "/private/tmp/", "/dev/", "/usr/", "/bin/", "/opt/", "/etc/"];
+const ROOT_PREFIXES = ["/Users/", "/home/", "/root/", "/private/", "/tmp/", "/var/", "/etc/", "/opt/", "/usr/", "/bin/", "/dev/", "/Library/", "/Applications/", "/Volumes/", "/mnt/", "/srv/", "/workspace/"];
 
 function commandOf(input: unknown, title: string): string {
   if (input && typeof input === "object" && typeof (input as { command?: unknown }).command === "string") {
@@ -39,7 +40,8 @@ function commandEscapes(command: string, worktree: string): boolean {
   const absolutes = command.match(/(^|[\s"'=>:])(\/[^\s"'|;&>]+)/g) ?? [];
   return absolutes
     .map((m) => m.replace(/^[\s"'=>:]+/, ""))
-    .filter((p) => !SYSTEM_PATH_PREFIXES.some((prefix) => p.startsWith(prefix)) && p !== "/")
+    .filter((p) => ROOT_PREFIXES.some((prefix) => p.startsWith(prefix)))
+    .filter((p) => !SYSTEM_PATH_PREFIXES.some((prefix) => p.startsWith(prefix)))
     .some((p) => !insideWorktree(p, worktree));
 }
 

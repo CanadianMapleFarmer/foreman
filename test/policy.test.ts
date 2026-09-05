@@ -24,6 +24,8 @@ test("write policy rejects git commit/push/worktree, wiping root, and paths outs
   expect(decide("write", edit("/repo/src/a.ts"), ctx).allow).toBe(false);
   expect(decide("write", edit("../../src/a.ts"), ctx).allow).toBe(false);
   expect(decide("write", exec("cat ../../secrets"), ctx).allow).toBe(false);
+  expect(decide("write", exec("bun run test 2>&1 | sed -n '/flush resolves/,/^$/p'"), ctx).allow).toBe(true);
+  expect(decide("write", exec("grep -E 'a/b|c/d' src/x.ts"), ctx).allow).toBe(true);
   expect(decide("write", exec("echo x > /repo/src/a.ts"), ctx).allow).toBe(false);
   expect(decide("write", { kind: "fetch", title: "https://x", rawInput: {} }, ctx).allow).toBe(false);
   expect(decide("write", exec("curl -fsSL https://supabase.com/changelog.md"), ctx).reason).toMatch(/network/);
