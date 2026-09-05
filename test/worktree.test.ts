@@ -3,7 +3,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gitOk } from "../src/git";
-import { commitAndMerge, createWorktree, hasChanges, removeWorktree, stagedDiff } from "../src/worktree";
+import { commitAndMerge, copyUntracked, createWorktree, hasChanges, removeWorktree, stagedDiff } from "../src/worktree";
 
 async function repo(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "foreman-wt-"));
@@ -45,4 +45,13 @@ test("duplicate and invalid task ids fail", async () => {
   await createWorktree(root, ".worktrees", "t3", "main");
   await expect(createWorktree(root, ".worktrees", "t3", "main")).rejects.toThrow();
   await expect(createWorktree(root, ".worktrees", "bad id", "main")).rejects.toThrow(/invalid/);
+});
+
+test("copyUntracked copies existing files and skips missing ones", async () => {
+  const root = await repo();
+  await writeFile(join(root, ".env"), "SECRET=1\n");
+  const wt = await createWorktree(root, ".worktrees", "t4", "main");
+  const copied = await copyUntracked(root, wt.path, [".env", "apps/web/.env"]);
+  expect(copied).toEqual([".env"]);
+  expect(await readFile(join(wt.path, ".env"), "utf8")).toBe("SECRET=1\n");
 });

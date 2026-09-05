@@ -19,6 +19,7 @@ const FileSchema = z.object({
   perTaskCapUsd: z.number().nonnegative().optional(),
   creditFloorUsd: z.number().nonnegative().optional(),
   roles: z.record(z.string(), RoleOverrideSchema).optional(),
+  copyIntoWorktree: z.array(z.string()).optional(),
 });
 
 export interface ForemanConfig {
@@ -30,6 +31,7 @@ export interface ForemanConfig {
   perTaskCapUsd: number;
   creditFloorUsd: number;
   roles: Record<string, Role>;
+  copyIntoWorktree: string[];
 }
 
 export const FOREMAN_DIR = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
@@ -59,5 +61,6 @@ export async function loadConfig(cwd: string, env: Record<string, string | undef
     perTaskCapUsd: parsed.perTaskCapUsd ?? 0.5,
     creditFloorUsd: parsed.creditFloorUsd ?? 5,
     roles: mergeRoles(DEFAULT_ROLES, parsed.roles),
+    copyIntoWorktree: parsed.copyIntoWorktree ?? [],
   };
 }

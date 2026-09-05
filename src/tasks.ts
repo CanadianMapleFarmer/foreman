@@ -6,7 +6,7 @@ import type { ForemanConfig } from "./config";
 import type { Ledger, TaskRecord, TaskState } from "./ledger";
 import { decide, type ToolCallInfo } from "./policy";
 import { resolvePromptText, type Role } from "./roles";
-import { commitAndMerge, createWorktree, removeWorktree, stagedDiff } from "./worktree";
+import { commitAndMerge, copyUntracked, createWorktree, removeWorktree, stagedDiff } from "./worktree";
 
 export interface WaitResult {
   status: "done" | "running" | "budget_exceeded" | "error" | "timeout";
@@ -43,6 +43,7 @@ export class TaskManager {
     const role = this.role(input.role);
     await budget.assertCanDispatch();
     const wt = await createWorktree(config.projectRoot, config.worktreeDir, input.taskId, input.base ?? config.baseBranch);
+    await copyUntracked(config.projectRoot, wt.path, config.copyIntoWorktree);
     const { testFiles, skips } = await countTests(wt.path);
     const now = new Date().toISOString();
     await ledger.create({

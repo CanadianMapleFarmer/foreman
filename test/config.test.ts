@@ -19,6 +19,7 @@ test("defaults when .foreman.json is absent", async () => {
   expect(cfg.perTaskCapUsd).toBe(0.5);
   expect(cfg.creditFloorUsd).toBe(5);
   expect(cfg.roles.coder!.model).toBe("openrouter/z-ai/glm-5.3-flash");
+  expect(cfg.copyIntoWorktree).toEqual([]);
 });
 
 test("reads .foreman.json and env override", async () => {

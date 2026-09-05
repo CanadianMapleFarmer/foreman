@@ -1,5 +1,5 @@
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { cp, mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { git, gitOk } from "./git";
 
 export interface Worktree { path: string; branch: string; baseCommit: string }
@@ -35,4 +35,16 @@ export async function commitAndMerge(root: string, worktreePath: string, branch:
 export async function removeWorktree(root: string, worktreePath: string, branch: string): Promise<void> {
   await gitOk(["worktree", "remove", "--force", worktreePath], root);
   await git(["branch", "-D", branch], root);
+}
+
+export async function copyUntracked(root: string, worktreePath: string, relativePaths: string[]): Promise<string[]> {
+  const copied: string[] = [];
+  for (const rel of relativePaths) {
+    const src = join(root, rel);
+    if (!(await Bun.file(src).exists())) continue;
+    await mkdir(dirname(join(worktreePath, rel)), { recursive: true });
+    await cp(src, join(worktreePath, rel));
+    copied.push(rel);
+  }
+  return copied;
 }
