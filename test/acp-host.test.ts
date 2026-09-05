@@ -57,3 +57,14 @@ test("child crash rejects the turn and isAlive turns false", async () => {
   await expect(h.prompt(sid, "CRASH", allowAll, 5000)).rejects.toThrow(/exited/);
   expect(h.isAlive()).toBe(false);
 });
+
+test("usage_update cost and context size are captured", async () => {
+  const h = host(); await h.start();
+  const sid = await h.newSession("/tmp");
+  const r = await h.prompt(sid, "COST", allowAll, 5000);
+  expect(r.reportedCostUsd).toBeCloseTo(0.0123);
+  expect(r.contextTokens).toBe(5000);
+  const plain = await h.prompt(sid, "hello", allowAll, 5000);
+  expect(plain.reportedCostUsd).toBeNull();
+  h.close();
+});

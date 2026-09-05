@@ -40,6 +40,7 @@ async function prompt(id: number, sid: string, text: string) {
       }
     }
   }
+  if (text.includes("COST")) update({ sessionUpdate: "usage_update", used: 5000, size: 400000, cost: { amount: 0.0123, currency: "USD" } });
   if (!text.includes("PERMISSION")) { chunk("PO"); chunk("NG"); }
   out({ jsonrpc: "2.0", id, result: { stopReason: "end_turn", usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 } } });
 }

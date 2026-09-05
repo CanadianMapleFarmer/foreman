@@ -17,6 +17,8 @@ test("credits, price and estimate", async () => {
   expect(est).toBeCloseTo(0.325);
   expect(await b.estimateUsd("openai/gpt-5.6-sol", "subscription", { inputTokens: 5, outputTokens: 5, totalTokens: 10 })).toBe(0);
   expect(b.spentThisProcessUsd).toBeCloseTo(0.325);
+  expect(await b.estimateUsd("openrouter/z-ai/glm-5.3-flash", "openrouter", null, 0.02)).toBe(0.02);
+  expect(await b.estimateUsd("openai/gpt-5.6-sol", "subscription", null, 0.02)).toBe(0);
 });
 
 test("floor and cap enforcement", async () => {

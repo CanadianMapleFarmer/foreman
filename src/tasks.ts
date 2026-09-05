@@ -15,6 +15,7 @@ export interface WaitResult {
   summaryEmpty: boolean;
   filesChanged: string[];
   usage: TurnUsage | null;
+  contextTokens: number | null;
   estCostUsd: number;
   rejections: number;
   error: string | null;
@@ -86,9 +87,9 @@ export class TaskManager {
     } catch (e) {
       const error = (e as Error).message;
       await ledger.update(taskId, { state: "failed", error });
-      return { status: "error", stopReason: null, summary: "", summaryEmpty: true, filesChanged: record.filesChanged, usage: null, estCostUsd: record.estCostUsd, rejections, error };
+      return { status: "error", stopReason: null, summary: "", summaryEmpty: true, filesChanged: record.filesChanged, usage: null, contextTokens: null, estCostUsd: record.estCostUsd, rejections, error };
     }
-    const estCostUsd = record.estCostUsd + (await budget.estimateUsd(role.model, role.billing, turn.usage));
+    const estCostUsd = record.estCostUsd + (await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd));
     const filesChanged = [...new Set([...record.filesChanged, ...turn.filesChanged])];
     const summaryEmpty = turn.text.trim().length === 0;
     const summary = summaryEmpty ? `No summary text. Files changed: ${filesChanged.join(", ") || "none detected"}` : turn.text.trim();
@@ -104,7 +105,7 @@ export class TaskManager {
     const error = status === "timeout" ? `turn exceeded ${role.maxTurnSeconds}s` : null;
     await ledger.update(taskId, { state, estCostUsd, turns: record.turns + 1, lastSummary: summary, filesChanged, error });
     await ledger.writeFile(taskId, `result-${record.turns + 1}.md`, summary);
-    return { status, stopReason: turn.stopReason, summary, summaryEmpty, filesChanged, usage: turn.usage, estCostUsd, rejections: turn.rejections, error };
+    return { status, stopReason: turn.stopReason, summary, summaryEmpty, filesChanged, usage: turn.usage, contextTokens: turn.contextTokens, estCostUsd, rejections: turn.rejections, error };
   }
 
   async wait(taskId: string, timeoutSeconds = 600): Promise<WaitResult> {
@@ -112,14 +113,14 @@ export class TaskManager {
     const record = await this.deps.ledger.read(taskId);
     if (!live) {
       const status = record.state === "failed" ? "error" : record.state === "budget_exceeded" ? "budget_exceeded" : "done";
-      return { status, stopReason: null, summary: record.lastSummary, summaryEmpty: !record.lastSummary, filesChanged: record.filesChanged, usage: null, estCostUsd: record.estCostUsd, rejections: 0, error: record.error };
+      return { status, stopReason: null, summary: record.lastSummary, summaryEmpty: !record.lastSummary, filesChanged: record.filesChanged, usage: null, contextTokens: null, estCostUsd: record.estCostUsd, rejections: 0, error: record.error };
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
     const pending = new Promise<"running">((r) => { timer = setTimeout(() => r("running"), timeoutSeconds * 1000); });
     const outcome = await Promise.race([live, pending]);
     if (timer) clearTimeout(timer);
     if (outcome === "running") {
-      return { status: "running", stopReason: null, summary: "", summaryEmpty: true, filesChanged: [], usage: null, estCostUsd: record.estCostUsd, rejections: 0, error: null };
+      return { status: "running", stopReason: null, summary: "", summaryEmpty: true, filesChanged: [], usage: null, contextTokens: null, estCostUsd: record.estCostUsd, rejections: 0, error: null };
     }
     this.live.delete(taskId);
     return outcome;
@@ -168,7 +169,7 @@ export class TaskManager {
       onPermission: (call) => decide("read", call, { worktree: record.worktree, acceptCommand: config.acceptCommand }),
       onEvent: (e) => { void ledger.appendEvent(taskId, { review: e }); },
     }, role.maxTurnSeconds * 1000);
-    const estCostUsd = await budget.estimateUsd(role.model, role.billing, turn.usage);
+    const estCostUsd = await budget.estimateUsd(role.model, role.billing, turn.usage, turn.reportedCostUsd);
     const parsed = parseFindings(turn.text);
     const reviewPath = await ledger.writeFile(taskId, "review.json", JSON.stringify({ role: roleName, model: role.model, ...parsed, raw: turn.text }, null, 2));
     await ledger.update(taskId, { review: { blocking: parsed.blocking.length, warnings: parsed.warnings.length }, estCostUsd: record.estCostUsd + estCostUsd, state: "reviewed" });

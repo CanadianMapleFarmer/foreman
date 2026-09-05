@@ -17,9 +17,17 @@ export interface TurnHandlers {
   onPermission(call: ToolCallInfo): { allow: boolean; reason: string };
   onEvent?(event: unknown): void;
 }
-export interface TurnResult { stopReason: string; text: string; filesChanged: string[]; usage: TurnUsage | null; rejections: number }
+export interface TurnResult {
+  stopReason: string;
+  text: string;
+  filesChanged: string[];
+  usage: TurnUsage | null;
+  reportedCostUsd: number | null;
+  contextTokens: number | null;
+  rejections: number;
+}
 
-interface ActiveTurn { handlers: TurnHandlers; text: string[]; files: Set<string>; rejections: number }
+interface ActiveTurn { handlers: TurnHandlers; text: string[]; files: Set<string>; rejections: number; reportedCostUsd: number | null; contextTokens: number | null }
 interface ConfigOption { id?: string; configId?: string; currentValue?: string }
 interface PermissionRequest {
   sessionId: string;
@@ -68,13 +76,14 @@ export class AcpHost {
   }
 
   async prompt(sessionId: string, text: string, handlers: TurnHandlers, timeoutMs: number): Promise<TurnResult> {
-    const turn: ActiveTurn = { handlers, text: [], files: new Set(), rejections: 0 };
+    const turn: ActiveTurn = { handlers, text: [], files: new Set(), rejections: 0, reportedCostUsd: null, contextTokens: null };
     this.turns.set(sessionId, turn);
     const request = this.rpc().request<{ stopReason: string; usage?: TurnUsage }>("session/prompt", { sessionId, prompt: [{ type: "text", text }] });
     let timer: ReturnType<typeof setTimeout> | null = null;
     const timeout = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), timeoutMs); });
     const finish = (stopReason: string, usage: TurnUsage | null): TurnResult => ({
-      stopReason, text: turn.text.join(""), filesChanged: [...turn.files], usage, rejections: turn.rejections,
+      stopReason, text: turn.text.join(""), filesChanged: [...turn.files], usage,
+      reportedCostUsd: turn.reportedCostUsd, contextTokens: turn.contextTokens, rejections: turn.rejections,
     });
     try {
       const outcome = await Promise.race([request, timeout]);
@@ -107,6 +116,10 @@ export class AcpHost {
     switch (u.sessionUpdate) {
       case "agent_message_chunk":
         if (u.content?.type === "text") { turn.text.push(u.content.text); turn.handlers.onChunk?.(u.content.text); }
+        break;
+      case "usage_update":
+        if (typeof u.used === "number") turn.contextTokens = u.used;
+        if (typeof u.cost?.amount === "number" && u.cost.amount > 0) turn.reportedCostUsd = u.cost.amount;
         break;
       case "agent_thought_chunk":
         if (u.content?.type === "text") turn.handlers.onThought?.(u.content.text);

@@ -50,13 +50,18 @@ export class Budget {
     return this.prices.get(model.slice("openrouter/".length)) ?? null;
   }
 
-  async estimateUsd(model: string, billing: Billing, usage: TurnUsage | null): Promise<number> {
-    if (billing === "subscription" || !usage) return 0;
-    const price = await this.priceFor(model);
-    if (!price) return 0;
-    const usd = usage.inputTokens * price.prompt + usage.outputTokens * price.completion;
+  async estimateUsd(model: string, billing: Billing, usage: TurnUsage | null, reportedCostUsd: number | null = null): Promise<number> {
+    if (billing === "subscription") return 0;
+    const usd = reportedCostUsd ?? (await this.fromPrices(model, usage));
     this.spentThisProcessUsd += usd;
     return usd;
+  }
+
+  private async fromPrices(model: string, usage: TurnUsage | null): Promise<number> {
+    if (!usage) return 0;
+    const price = await this.priceFor(model);
+    if (!price) return 0;
+    return usage.inputTokens * price.prompt + usage.outputTokens * price.completion;
   }
 
   async assertCanDispatch(): Promise<void> {
