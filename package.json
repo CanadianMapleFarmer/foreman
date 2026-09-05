@@ -1,16 +1,14 @@
 {
   "name": "foreman",
-  "module": "index.ts",
-  "type": "module",
+  "version": "0.1.0",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "^1.4.1"
+  "type": "module",
+  "bin": { "foreman": "./src/cli.ts" },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "mcp": "bun run src/cli.ts mcp"
   },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "zod": "^4"
-  }
+  "dependencies": { "@modelcontextprotocol/sdk": "1.30.0", "zod": "^4.0.0" },
+  "devDependencies": { "@types/bun": "latest", "typescript": "^5.9.0" }
 }
